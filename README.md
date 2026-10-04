@@ -71,7 +71,7 @@ The Refunds Dashboard is the second app, built on the same platform. Its full be
 
 1. **Rita**: open **Refunds Dashboard**, then filter by status or amount range. Open a `pending` refund, write a note, and click **Recommend refund**.
 2. **Rex**: open the same refund and click **Approve refund** or **Reject**.
-3. **Self-approval check**: as **Quinn**, open RF-2023 (recommended by Quinn) and try to approve it. You get "You cannot approve or reject your own submission".
+3. **Self-approval check**: as **Quinn**, open RF-2022 (recommended by Quinn) and try to approve it. You get "You cannot approve or reject your own submission".
 4. **Erin**: the audit log can be filtered by app `refunds`.
 
 ## What is enforced, and where

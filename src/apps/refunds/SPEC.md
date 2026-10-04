@@ -75,7 +75,7 @@ Refund entries store full `before` and `after` snapshots. Refunds have no sensit
 ## 6. Seed data (`prisma/seed.ts`)
 
 - 25 refunds, `RF-2001` to `RF-2025`, generated deterministically. About 20% are over $1,000.
-- `RF-2022` and `RF-2024` are `recommended` by Rita. `RF-2023` and `RF-2025` are `recommended` by Quinn. The rest are `pending`.
+- `RF-2022` and `RF-2024` are `recommended` by Quinn. `RF-2023` and `RF-2025` are `recommended` by Rita. The rest are `pending`.
 - Demo users:
 
 | User | Roles |
