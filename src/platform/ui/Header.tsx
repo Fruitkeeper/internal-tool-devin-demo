@@ -19,9 +19,14 @@ export function Header({ user, users, apps }: { user: CurrentUser; users: Curren
             </Link>
           ))}
           {hasRole(user, [ADMIN_ROLE]) && (
-            <Link href="/admin/audit" className="text-slate-300 hover:text-white">
-              Audit log
-            </Link>
+            <>
+              <Link href="/admin/access" className="text-slate-300 hover:text-white">
+                Access control
+              </Link>
+              <Link href="/admin/audit" className="text-slate-300 hover:text-white">
+                Audit log
+              </Link>
+            </>
           )}
         </nav>
         <UserSwitcher user={user} users={users} />

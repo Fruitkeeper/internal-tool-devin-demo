@@ -8,4 +8,9 @@ export const refundsApp: AppDefinition = {
   description: "Recommend and approve customer refunds with maker-checker approval.",
   route: "/refunds",
   roles: [REFUNDS_ANALYST, REFUNDS_REVIEWER, ADMIN_ROLE],
+  permissions: {
+    [REFUNDS_ANALYST]: "Recommend",
+    [REFUNDS_REVIEWER]: "Approve / reject",
+    [ADMIN_ROLE]: "View",
+  },
 };

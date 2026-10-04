@@ -38,7 +38,7 @@ Use the **"Signed in as"** switcher in the header. This is stub auth (a cookie);
 | Bob Analyst | `kyc_analyst` | second analyst |
 | Carol Reviewer | `kyc_reviewer` | approve or send back recommendations, reveal IDs |
 | Dave Reviewer | `kyc_reviewer` | second reviewer |
-| Erin Admin | `admin` | read-only KYC access, audit log viewer, reveal IDs |
+| Erin Admin | `admin` | Access control (change anyone's roles), audit log viewer, read-only access to every app, reveal IDs |
 | Sam Senior | `kyc_analyst`, `kyc_reviewer` | demo that you **can't approve your own** recommendation |
 | Rita Refunds | `refunds_analyst` | recommend refunds |
 | Rex Refunds Reviewer | `refunds_reviewer` | approve or reject refund recommendations |
@@ -87,6 +87,16 @@ The third app: configuration edits rather than a case queue. Its full behavior i
 4. **Self-approval check**: as **Pat**, open `new-checkout` in `production` (requested by Pat) and try to approve it. You get "You cannot approve or reject your own submission".
 5. **Erin**: the audit log can be filtered by app `flags`.
 
+## Access control walkthrough
+
+1. **Erin**: open **Access control**. Each row shows a user's roles and what they can do in KYC, Refunds and Feature Flags.
+2. Click **Edit** on **Alice**, uncheck `kyc_analyst`, check `kyc_reviewer`, and click **Save roles**. Alice's KYC column now reads "Approve / reject".
+3. Switch to **Alice** and open KYC-1028, a `recommended` case submitted by Sam. She can now approve it or send it back. She no longer has the analyst actions, and still can't approve the cases she recommended herself (KYC-1027, KYC-1029).
+4. **Erin**: grant **Zoe** `refunds_analyst`. Switch to Zoe: Refunds appears in her nav. Revoke it again and it disappears, and `/refunds` shows Access denied.
+5. **Erin**: filter the audit log by app `access` to see each `user.roles_changed` entry with before and after roles.
+
+Role changes persist across `npm run dev` restarts. `npm run db:reset` restores the seeded roles.
+
 ## What is enforced, and where
 
 - **Authorization is server-side.** Every function in each app's `service.ts` calls `requireRole` first. Server actions only resolve the current user and delegate to the service. Hidden buttons are convenience, not security.
@@ -96,12 +106,14 @@ The third app: configuration edits rather than a case queue. Its full behavior i
 - **Invalid status transitions are rejected.** They are defined in `src/apps/kyc/workflow.ts`.
 - **ID numbers are masked by default.** Pages and audit snapshots only ever get the masked value. The full number is returned only by `revealIdNumber`, which writes an audit entry.
 
+- **Role changes are admin-only on the server.** `setUserRoles` calls `requireRole(actor, ["admin"])`, accepts only roles declared in the registry, and audits every change in the same transaction.
+
 Tests covering these rules are in `tests/`.
 
 ## Prototype tradeoffs (deliberate)
 
 - **Stub auth.** Any visitor can pick any user. Replace `getCurrentUser()` with OIDC or Entra ID.
-- **Roles are stored as a comma-separated string on `User`.** There is no role-management UI.
+- **Roles are stored as a comma-separated string on `User`.** Access control assigns the roles apps already declare; there are no custom roles or per-user overrides.
 - **No pagination, case assignment, notifications, or E2E tests.**
 - **Audit snapshots are JSON strings** (SQLite has no JSON column type). The audit viewer shows the latest 200 entries.
 - **Seed history.** Seeded in-progress cases have audit history written directly by the seed script.
