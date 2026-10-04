@@ -40,6 +40,9 @@ Use the **"Signed in as"** switcher in the header. This is stub auth (a cookie);
 | Dave Reviewer | `kyc_reviewer` | second reviewer |
 | Erin Admin | `admin` | read-only KYC access, audit log viewer, reveal IDs |
 | Sam Senior | `kyc_analyst`, `kyc_reviewer` | demo that you **can't approve your own** recommendation |
+| Rita Refunds | `refunds_analyst` | recommend refunds |
+| Rex Refunds Reviewer | `refunds_reviewer` | approve or reject refund recommendations |
+| Quinn Refunds Lead | `refunds_analyst`, `refunds_reviewer` | demo that you can't approve your own refund recommendation |
 | Zoe Visitor | none | demo access denied |
 
 ## KYC workflow walkthrough
@@ -62,9 +65,18 @@ pending → in_review → recommended → approved / rejected
 
 Every step appears in the case's **History** panel, which reads from the audit log.
 
+## Refunds walkthrough
+
+The Refunds Dashboard is the second app, built on the same platform. Its full behavior is in [src/apps/refunds/SPEC.md](./src/apps/refunds/SPEC.md).
+
+1. **Rita**: open **Refunds Dashboard**, then filter by status or amount range. Open a `pending` refund, write a note, and click **Recommend refund**.
+2. **Rex**: open the same refund and click **Approve refund** or **Reject**.
+3. **Self-approval check**: as **Quinn**, open RF-2022 (recommended by Quinn) and try to approve it. You get "You cannot approve or reject your own submission".
+4. **Erin**: the audit log can be filtered by app `refunds`.
+
 ## What is enforced, and where
 
-- **Authorization is server-side.** Every function in `src/apps/kyc/service.ts` calls `requireRole` first. Server actions only resolve the current user and delegate to the service. Hidden buttons are convenience, not security.
+- **Authorization is server-side.** Every function in each app's `service.ts` calls `requireRole` first. Server actions only resolve the current user and delegate to the service. Hidden buttons are convenience, not security.
 - **Audit entries are written in the same transaction as the change.** `recordAudit(tx, …)` takes a transaction client. If an action fails, no audit row is written.
 - **The audit log is append-only.** SQLite triggers in the initial migration abort any `UPDATE` or `DELETE` on `AuditLog`, and the app has no code path that edits it.
 - **Maker-checker.** `decideApproval` rejects decisions by the submitter, users without a checker role, and requests that were already decided.

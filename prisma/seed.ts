@@ -10,6 +10,9 @@ const USERS = [
   { id: "erin", name: "Erin Admin", email: "erin@example.com", roles: "admin" },
   { id: "sam", name: "Sam Senior", email: "sam@example.com", roles: "kyc_analyst,kyc_reviewer" },
   { id: "zoe", name: "Zoe Visitor", email: "zoe@example.com", roles: "" },
+  { id: "rita", name: "Rita Refunds", email: "rita@example.com", roles: "refunds_analyst" },
+  { id: "rex", name: "Rex Refunds Reviewer", email: "rex@example.com", roles: "refunds_reviewer" },
+  { id: "quinn", name: "Quinn Refunds Lead", email: "quinn@example.com", roles: "refunds_analyst,refunds_reviewer" },
 ];
 
 const FIRST = ["Ana", "Ben", "Chen", "Dara", "Elif", "Farah", "Goran", "Hana", "Ivan", "Jae", "Kofi", "Lena", "Mateo", "Nia", "Omar"];
@@ -23,14 +26,15 @@ const rand = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
 const pick = <T,>(xs: T[]) => xs[Math.floor(rand() * xs.length)];
 const digits = (n: number) => Array.from({ length: n }, () => Math.floor(rand() * 10)).join("");
 
+// Idempotent: users are upserted and each app's data is seeded only if its table is empty,
+// so adding a new app's seed works on an existing database.
 async function main() {
-  if (process.argv.includes("--if-empty") && (await db.user.count()) > 0) {
-    console.log("Database already seeded.");
-    return;
-  }
+  for (const u of USERS) await db.user.upsert({ where: { id: u.id }, create: u, update: { roles: u.roles } });
+  if ((await db.kycCase.count()) === 0) await seedKyc();
+  if ((await db.refund.count()) === 0) await seedRefunds();
+}
 
-  for (const u of USERS) await db.user.create({ data: u });
-
+async function seedKyc() {
   const now = Date.now();
   for (let i = 0; i < 30; i++) {
     const sanctionsHit = rand() < 0.1;
@@ -82,7 +86,51 @@ async function main() {
       }
     }
   }
-  console.log(`Seeded ${USERS.length} users and 30 KYC cases.`);
+  console.log("Seeded 30 KYC cases.");
+}
+
+// ---------- Refunds app ----------
+
+const REASONS = ["Item not received", "Damaged on arrival", "Duplicate charge", "Wrong item sent", "Subscription cancelled", "Service outage credit"];
+
+async function seedRefunds() {
+  let s = 7; // separate PRNG so refunds data doesn't depend on KYC seeding
+  const r = () => ((s = (s * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
+  const pickR = <T,>(xs: T[]) => xs[Math.floor(r() * xs.length)];
+  const now = Date.now();
+  for (let i = 0; i < 25; i++) {
+    const id = `RF-${2001 + i}`;
+    const createdAt = new Date(now - (i * 1.3 + r()) * 24 * 60 * 60 * 1000);
+    const dollars = r() < 0.2 ? 1000 + r() * 4000 : 10 + r() * 600;
+    const status = i >= 21 ? "recommended" : "pending";
+    await db.refund.create({
+      data: {
+        id,
+        customerName: `${pickR(FIRST)} ${pickR(LAST)}`,
+        orderRef: `ORD-${String(Math.floor(r() * 1e6)).padStart(6, "0")}`,
+        amountCents: Math.round(dollars * 100),
+        reason: pickR(REASONS),
+        status,
+        createdAt,
+      },
+    });
+    if (status === "recommended") {
+      const analyst = USERS.find((u) => u.id === (i % 2 === 0 ? "rita" : "quinn"))!;
+      const note = "Seeded recommendation: order history checked.";
+      const approval = await db.approval.create({
+        data: { appId: "refunds", entityType: "Refund", entityId: id, proposedAction: "refund", note, submittedById: analyst.id, createdAt },
+      });
+      await db.auditLog.create({
+        data: { userId: analyst.id, userName: analyst.name, role: "refunds_analyst", appId: "refunds", action: "approval.submitted",
+          entityType: "Approval", entityId: approval.id, after: JSON.stringify({ status: "pending", proposedAction: "refund", note, submittedById: analyst.id }), createdAt },
+      });
+      await db.auditLog.create({
+        data: { userId: analyst.id, userName: analyst.name, role: "refunds_analyst", appId: "refunds", action: "refund.recommended",
+          entityType: "Refund", entityId: id, before: JSON.stringify({ status: "pending" }), after: JSON.stringify({ status: "recommended", approvalId: approval.id }), createdAt },
+      });
+    }
+  }
+  console.log("Seeded 25 refunds.");
 }
 
 main().finally(() => db.$disconnect());
