@@ -7,6 +7,8 @@ A small internal-tools portal for a fintech company. It shows two things:
 
 The point is reusability. A second app (refunds, feature flags, …) should plug into the same platform without touching KYC code. [CONVENTIONS.md](./CONVENTIONS.md) explains how to add one.
 
+**Full feature specification:** [SPEC.md](./SPEC.md). It covers roles and permissions, workflow transitions, audit actions and invariants.
+
 Stack: Next.js 15 (App Router) · TypeScript · Prisma + SQLite · Tailwind CSS 4 · Vitest. It needs no external services.
 
 ## Run it

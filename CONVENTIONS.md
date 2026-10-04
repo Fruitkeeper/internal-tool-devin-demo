@@ -1,6 +1,6 @@
 # Adding an internal app
 
-This is the playbook for adding a new app (example: **refunds**) to the portal. Follow it as written. If you find you need to change another app's code, stop and move the shared piece into `src/platform/` instead.
+For what existing features do, see [SPEC.md](./SPEC.md). This is the playbook for adding a new app (example: **refunds**) to the portal. Follow it as written. If you find you need to change another app's code, stop and move the shared piece into `src/platform/` instead.
 
 ## Layout
 
