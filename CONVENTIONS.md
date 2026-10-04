@@ -1,13 +1,13 @@
 # Adding an internal app
 
-For what existing features do, see [SPEC.md](./SPEC.md). This is the playbook for adding a new app (example: **refunds**) to the portal. Follow it as written. If you find you need to change another app's code, stop and move the shared piece into `src/platform/` instead.
+For what existing features do, see [SPEC.md](./SPEC.md) and each app's `src/apps/<app>/SPEC.md`. This is the playbook for adding a new app (example: **refunds**) to the portal. Follow it as written. If you find you need to change another app's code, stop and move the shared piece into `src/platform/` instead.
 
 ## Layout
 
 ```
 src/platform/        shared capabilities. Must never import from src/apps (a test enforces this).
 src/apps/index.ts    the app registry, the only shared file you edit
-src/apps/<app>/      everything specific to your app
+src/apps/<app>/      everything specific to your app, including its SPEC.md
 src/app/<route>/     thin Next.js route files that re-export pages from src/apps/<app>/pages
 prisma/schema.prisma your app's models go in a "// ---------- <App> app ----------" section
 ```
@@ -136,6 +136,20 @@ Add `tests/<app>.test.ts`. Call service functions directly with fake `CurrentUse
 - each mutation writes the expected audit entry,
 - invalid transitions throw `ValidationError`.
 
+## 9. Write the app spec
+
+Add `src/apps/<app>/SPEC.md`, modeled on [`src/apps/kyc/SPEC.md`](./src/apps/kyc/SPEC.md). It should cover:
+- data fields
+- a role × capability table
+- a state-transition table
+- pages, query params, and what each control does
+- the audit actions the app emits
+- seed data
+- invariants, with the tests that cover them
+- out-of-scope items
+
+Add one row for the app to the **Apps** table in the root [SPEC.md](./SPEC.md). Describe platform behavior by linking to the root spec rather than restating it.
+
 ## Checklist
 
 - [ ] `src/apps/<app>/{roles,app,service,actions}.ts`, `pages/`, `components/`
@@ -144,4 +158,5 @@ Add `tests/<app>.test.ts`. Call service functions directly with fake `CurrentUse
 - [ ] Prisma models plus a migration (`npx prisma migrate dev --name <app>_init`), and seed data
 - [ ] Every mutation: `requireRole` → transaction → `recordAudit`
 - [ ] Tests for authz, maker-checker, audit, and transitions
+- [ ] `src/apps/<app>/SPEC.md` written, plus a row in the root `SPEC.md` Apps table
 - [ ] No imports from other apps, and no app imports inside `src/platform`

@@ -1,8 +1,8 @@
 # Functional specification
 
-This is the source of truth for **what the portal does**. Read it to understand any feature without reading the code. For **how to add a new app**, see [CONVENTIONS.md](./CONVENTIONS.md). For setup and the demo walkthrough, see [README.md](./README.md).
+This is the entry point for **what the portal does**. It specifies the shared platform and indexes each app's own spec. Read it to understand any feature without reading the code. For **how to add a new app**, see [CONVENTIONS.md](./CONVENTIONS.md). For setup and the demo walkthrough, see [README.md](./README.md).
 
-Keep this file in sync with the code. If a change alters a feature, role, transition, audit action or invariant, update the matching section in the same PR.
+Each app's behavior is specified in `src/apps/<app>/SPEC.md`, next to its code (see [section 3](#3-apps)). Keep each spec in sync with the code it describes, and update it in the same PR as any behavior change.
 
 ---
 
@@ -12,7 +12,7 @@ Keep this file in sync with the code. If a change alters a feature, role, transi
 | --- | --- | --- |
 | Platform | `src/platform/` | Auth, authorization, audit log, maker-checker approvals, app registry, shared UI. Knows nothing about any specific app. |
 | App registry | `src/apps/index.ts` | List of installed apps. Drives navigation, portal tiles and app access. |
-| KYC app | `src/apps/kyc/` | Customer identity case review. |
+| Apps | `src/apps/<app>/` | One directory per app, each with its own `SPEC.md`. |
 | Routes | `src/app/` | Thin Next.js route files that re-export pages from the platform or apps. |
 | Data | `prisma/schema.prisma` | SQLite database (`prisma/dev.db`). Tests use `prisma/test.db`. |
 
@@ -81,117 +81,17 @@ The platform does not change the app's entity. The calling app applies its own s
 
 ---
 
-## 3. KYC app
+## 3. Apps
 
-App id `kyc`, route `/kyc`. Access: `kyc_analyst`, `kyc_reviewer` or `admin`.
-
-### 3.1 Case data (`KycCase`)
-
-| Field | Notes |
-| --- | --- |
-| `id` | e.g. `KYC-1001` |
-| `customerName`, `dateOfBirth` (YYYY-MM-DD), `country` (ISO-2) | Customer info |
-| `idDocType` | `passport`, `national_id` or `drivers_license` |
-| `idDocNumber` | Mock number, **masked by default** (`•••••5678`) |
-| `riskScore` | 0–100 |
-| `sanctionsHit`, `pepHit` | Risk flags |
-| `status` | See 3.3 |
-| `escalated` | Boolean flag, see 3.4 |
-| `createdAt` | Drives "case age" |
-
-Risk bands: **low** 0–39, **medium** 40–69, **high** 70–100.
-
-### 3.2 Permissions
-
-| Capability | kyc_analyst | kyc_reviewer | admin | no role |
-| --- | :-: | :-: | :-: | :-: |
-| View queue and case detail | ✓ | ✓ | ✓ (read-only) | ✗ |
-| Start review | ✓ | ✗ | ✗ | ✗ |
-| Submit recommendation | ✓ | ✗ | ✗ | ✗ |
-| Escalate | ✓ | ✗ | ✗ | ✗ |
-| Decide on a recommendation (approve or send back) | ✗ | ✓ (not your own) | ✗ | ✗ |
-| Reveal full ID number | ✗ | ✓ | ✓ | ✗ |
-| View audit log viewer | ✗ | ✗ | ✓ | ✗ |
-
-A user holding both analyst and reviewer roles can do both, but can never decide on their own recommendation.
-
-### 3.3 Workflow
-
-```
-pending ──start review──▶ in_review ──recommend──▶ recommended ──reviewer approves──▶ approved | rejected
-                              ▲                          │
-                              └──────── send back ───────┘
-```
-
-| From | To | Triggered by | Conditions |
+| App | Route | Roles with access | Spec |
 | --- | --- | --- | --- |
-| `pending` | `in_review` | Analyst: **Start review** | — |
-| `in_review` | `recommended` | Analyst: **Submit for review** with outcome `approve` or `reject` and a note | Note required; creates a pending `Approval` with `proposedAction = outcome` |
-| `recommended` | `approved` | Reviewer: **Approve recommendation** on an `approve` proposal | Reviewer ≠ submitter |
-| `recommended` | `rejected` | Reviewer: **Approve recommendation** on a `reject` proposal | Reviewer ≠ submitter |
-| `recommended` | `in_review` | Reviewer: **Send back** (rejects the recommendation) | Reviewer ≠ submitter; analyst can recommend again |
+| KYC Review | `/kyc` | `kyc_analyst`, `kyc_reviewer`, `admin` | [src/apps/kyc/SPEC.md](./src/apps/kyc/SPEC.md) |
 
-- `approved` and `rejected` are **terminal**. No further actions are allowed.
-- Any other transition is rejected server-side with `Invalid status transition: <from> → <to>`. The case and the audit log are left unchanged.
-- The reviewer's decision note is optional.
-- Any analyst can work on any case; there is no case assignment.
+A new app adds one row here, alongside its registry entry in `src/apps/index.ts`.
 
-### 3.4 Escalation
+### Demo users
 
-- An analyst can escalate any **non-terminal** case that isn't already escalated. A reason is required.
-- Escalation sets `escalated = true` and does **not** change the status. The reason is recorded in the audit entry.
-- Escalated cases show a red **escalated** badge in the queue and on the case page, and can be filtered. There is no "de-escalate" action.
-
-### 3.5 ID number masking and reveal
-
-- Pages and audit snapshots only ever receive the masked value. All but the last 4 characters are replaced with `•`.
-- **Reveal (audited)** (reviewer or admin) calls a server action that writes a `case.id_revealed` audit entry, then returns the full number for display. Reloading the page masks it again.
-
-### 3.6 Pages
-
-**Queue: `/kyc`**
-- Table columns: case id (link), customer, country, risk (score and band), flags (sanctions / PEP / escalated), status, age in days.
-- Filters are URL query params, applied with **Apply**:
-  - `status`: any status
-  - `risk`: `low`, `medium` or `high`
-  - `escalated=1`: escalated cases only
-- `sort` options: `risk_desc` (default), `risk_asc`, `age_desc` (oldest first), `age_asc` (newest first).
-- **Reset** clears all filters.
-
-**Case detail: `/kyc/[id]`**
-- Customer card, including the masked ID number and a Reveal button for reviewers and admins.
-- Risk signals card: score, sanctions and PEP results.
-- History: every audit entry for the case and its approvals, oldest first, with user, role, time and changed fields.
-- Actions card, depending on role and status:
-  - Start review
-  - Recommendation form
-  - Pending-recommendation box, with Approve and Send back buttons for reviewers
-  - Escalation form
-  - "Closed" message for terminal cases
-  - "Read-only access" for users without analyst or reviewer roles
-- Errors appear as a red banner at the top.
-
-### 3.7 Audit actions emitted
-
-| Action | Entity | Emitted when | `after` contains |
-| --- | --- | --- | --- |
-| `case.review_started` | KycCase | pending → in_review | masked case, `status: in_review` |
-| `approval.submitted` | Approval | Recommendation submitted | approval snapshot (`proposedAction`, `note`, `status: pending`, …) |
-| `case.recommended` | KycCase | in_review → recommended | masked case, `recommendation`, `approvalId` |
-| `approval.approved` | Approval | Reviewer approves the recommendation | approval snapshot with `decidedById` and `decisionNote` |
-| `case.decided` | KycCase | recommended → approved or rejected | masked case, `approvalId` |
-| `approval.rejected` | Approval | Reviewer sends back | approval snapshot |
-| `case.recommendation_rejected` | KycCase | recommended → in_review | masked case, `approvalId` |
-| `case.escalated` | KycCase | Escalation | masked case with `escalated: true`, `escalationReason` |
-| `case.id_revealed` | KycCase | Full ID number revealed | `{ field: "idDocNumber" }` |
-
-KycCase entries also store the masked `before` snapshot.
-
-### 3.8 Seed data (`prisma/seed.ts`)
-
-- Seeding is deterministic, so every install gets the same data.
-- `npm run dev` seeds only when the database is empty. `npm run db:reset` wipes and reseeds.
-- Users:
+Users are seeded by `prisma/seed.ts` and switched in the header. App-specific seed data is described in each app's spec.
 
 | id | Roles |
 | --- | --- |
@@ -199,38 +99,19 @@ KycCase entries also store the masked `before` snapshot.
 | carol, dave | `kyc_reviewer` |
 | erin | `admin` |
 | sam | `kyc_analyst`, `kyc_reviewer` |
-| zoe | none |
-
-- Cases:
-
-| Cases | Status |
-| --- | --- |
-| KYC-1001 to 1022 | `pending` |
-| KYC-1023 to 1026 | `in_review` |
-| KYC-1027, KYC-1029 | `recommended`, by Alice |
-| KYC-1028, KYC-1030 | `recommended`, by Sam |
-
-- Seeded in-progress cases come with matching audit history.
+| zoe | none (sees no apps) |
 
 ---
 
-## 4. Invariants and where they are tested
+## 4. Platform invariants and where they are tested
 
 | Invariant | Test |
 | --- | --- |
-| An analyst cannot invoke the decide/approve action | `tests/kyc-workflow.test.ts` › authorization |
-| Reviewers cannot perform analyst actions; analysts cannot reveal IDs | same |
-| Page data never contains the full ID number | same |
-| A user cannot approve their own recommendation | `tests/kyc-workflow.test.ts` › maker-checker |
-| Approve applies the proposed outcome; send back returns to `in_review` | same |
-| A recommendation requires a note | same |
-| Each mutation writes the expected audit entries (user, role, before/after) | `tests/kyc-workflow.test.ts` › audit trail |
-| Failed actions write no audit entry (same transaction) | same |
-| Invalid transitions are rejected and leave state and audit unchanged | `tests/kyc-workflow.test.ts` › workflow transitions |
 | The audit log rejects UPDATE and DELETE | `tests/platform.test.ts` |
 | `src/platform` never imports from `src/apps` | `tests/platform.test.ts` |
+| Self-approval is blocked; approvals can't be decided twice; a note is required | Exercised through the KYC app in `tests/kyc-workflow.test.ts` › maker-checker |
 
-Run them with `npm test`.
+App invariants are listed in each app's spec. Run everything with `npm test`.
 
 ---
 
@@ -238,12 +119,8 @@ Run them with `npm test`.
 
 - Real SSO
 - Production deployment
-- Real identity-verification integrations
 - Notifications
-- Pagination
-- Case assignment
 - Role-management UI
-- De-escalation
 - E2E test suite
 - Per-app database schemas
 - Dynamic app loading
