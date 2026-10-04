@@ -13,6 +13,9 @@ const USERS = [
   { id: "rita", name: "Rita Refunds", email: "rita@example.com", roles: "refunds_analyst" },
   { id: "rex", name: "Rex Refunds Reviewer", email: "rex@example.com", roles: "refunds_reviewer" },
   { id: "quinn", name: "Quinn Refunds Lead", email: "quinn@example.com", roles: "refunds_analyst,refunds_reviewer" },
+  { id: "fiona", name: "Fiona Flags", email: "fiona@example.com", roles: "flags_editor" },
+  { id: "felix", name: "Felix Flag Approver", email: "felix@example.com", roles: "flags_approver" },
+  { id: "pat", name: "Pat Platform Lead", email: "pat@example.com", roles: "flags_editor,flags_approver" },
 ];
 
 const FIRST = ["Ana", "Ben", "Chen", "Dara", "Elif", "Farah", "Goran", "Hana", "Ivan", "Jae", "Kofi", "Lena", "Mateo", "Nia", "Omar"];
@@ -32,6 +35,7 @@ async function main() {
   for (const u of USERS) await db.user.upsert({ where: { id: u.id }, create: u, update: { roles: u.roles } });
   if ((await db.kycCase.count()) === 0) await seedKyc();
   if ((await db.refund.count()) === 0) await seedRefunds();
+  if ((await db.featureFlag.count()) === 0) await seedFlags();
 }
 
 async function seedKyc() {
@@ -131,6 +135,57 @@ async function seedRefunds() {
     }
   }
   console.log("Seeded 25 refunds.");
+}
+
+// ---------- Feature Flags app ----------
+
+const FLAGS = [
+  { key: "new-checkout", description: "Redesigned checkout flow" },
+  { key: "instant-payouts", description: "Same-day merchant payouts" },
+  { key: "card-freeze-v2", description: "New card freeze/unfreeze screen" },
+  { key: "smart-alerts", description: "ML-based spending alerts" },
+  { key: "crypto-wallet", description: "Crypto wallet tab" },
+  { key: "dark-mode", description: "Dark theme in the customer app" },
+];
+// [development, staging, production] as [enabled, rolloutPct]
+const FLAG_STATES: [boolean, number][][] = [
+  [[true, 100], [true, 100], [false, 0]],
+  [[true, 100], [true, 50], [true, 25]],
+  [[true, 100], [true, 100], [true, 100]],
+  [[true, 100], [false, 0], [false, 0]],
+  [[false, 0], [false, 0], [false, 0]],
+  [[true, 100], [true, 100], [true, 10]],
+];
+const ENVS = ["development", "staging", "production"];
+
+async function seedFlags() {
+  for (const [i, f] of FLAGS.entries()) {
+    for (const [j, environment] of ENVS.entries()) {
+      const [enabled, rolloutPct] = FLAG_STATES[i][j];
+      await db.featureFlag.create({ data: { id: `${f.key}.${environment}`, ...f, environment, enabled, rolloutPct } });
+    }
+  }
+  // Two pending production changes: one by Pat (to demo self-approval being blocked), one by Fiona.
+  const pending = [
+    { flagId: "new-checkout.production", by: "pat", before: { enabled: false, rolloutPct: 0 }, proposed: { enabled: true, rolloutPct: 10 }, note: "Start canary at 10%." },
+    { flagId: "instant-payouts.production", by: "fiona", before: { enabled: true, rolloutPct: 25 }, proposed: { enabled: true, rolloutPct: 50 }, note: "No incidents at 25%; widening." },
+  ];
+  for (const p of pending) {
+    const u = USERS.find((x) => x.id === p.by)!;
+    const proposedAction = JSON.stringify(p.proposed);
+    const approval = await db.approval.create({
+      data: { appId: "flags", entityType: "FeatureFlag", entityId: p.flagId, proposedAction, note: p.note, submittedById: u.id },
+    });
+    await db.auditLog.create({
+      data: { userId: u.id, userName: u.name, role: "flags_editor", appId: "flags", action: "approval.submitted", entityType: "Approval",
+        entityId: approval.id, after: JSON.stringify({ status: "pending", proposedAction, note: p.note, submittedById: u.id }) },
+    });
+    await db.auditLog.create({
+      data: { userId: u.id, userName: u.name, role: "flags_editor", appId: "flags", action: "flag.change_requested", entityType: "FeatureFlag",
+        entityId: p.flagId, before: JSON.stringify(p.before), after: JSON.stringify({ ...p.proposed, approvalId: approval.id }) },
+    });
+  }
+  console.log(`Seeded ${FLAGS.length * ENVS.length} feature flag settings.`);
 }
 
 main().finally(() => db.$disconnect());

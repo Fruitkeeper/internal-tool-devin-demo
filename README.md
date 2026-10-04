@@ -43,6 +43,9 @@ Use the **"Signed in as"** switcher in the header. This is stub auth (a cookie);
 | Rita Refunds | `refunds_analyst` | recommend refunds |
 | Rex Refunds Reviewer | `refunds_reviewer` | approve or reject refund recommendations |
 | Quinn Refunds Lead | `refunds_analyst`, `refunds_reviewer` | demo that you can't approve your own refund recommendation |
+| Fiona Flags | `flags_editor` | change feature flags; production changes need approval |
+| Felix Flag Approver | `flags_approver` | approve or reject production flag changes |
+| Pat Platform Lead | `flags_editor`, `flags_approver` | demo that you can't approve your own flag change |
 | Zoe Visitor | none | demo access denied |
 
 ## KYC workflow walkthrough
@@ -73,6 +76,16 @@ The Refunds Dashboard is the second app, built on the same platform. Its full be
 2. **Rex**: open the same refund and click **Approve refund** or **Reject**.
 3. **Self-approval check**: as **Quinn**, open RF-2022 (recommended by Quinn) and try to approve it. You get "You cannot approve or reject your own submission".
 4. **Erin**: the audit log can be filtered by app `refunds`.
+
+## Feature Flag Admin walkthrough
+
+The third app: configuration edits rather than a case queue. Its full behavior is in [src/apps/flags/SPEC.md](./src/apps/flags/SPEC.md).
+
+1. **Fiona**: open **Feature Flag Admin**, open `smart-alerts` in `staging`, enable it at 30% and click **Save**. It applies immediately.
+2. **Fiona**: open `dark-mode` in `production`, change the rollout, add a reason and click **Request production change**. The flag is unchanged and shows "pending approval".
+3. **Felix**: open the same flag and click **Approve change** or **Reject**.
+4. **Self-approval check**: as **Pat**, open `new-checkout` in `production` (requested by Pat) and try to approve it. You get "You cannot approve or reject your own submission".
+5. **Erin**: the audit log can be filtered by app `flags`.
 
 ## What is enforced, and where
 
