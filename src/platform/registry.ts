@@ -9,6 +9,8 @@ export type AppDefinition = {
   route: string;
   /** Users need at least one of these roles to see or open the app. */
   roles: string[];
+  /** Optional: what each role can do in this app, in a few words. Shown on Admin → Access control. */
+  permissions?: Record<string, string>;
 };
 
 export function canAccessApp(user: CurrentUser, app: AppDefinition): boolean {

@@ -40,6 +40,7 @@ export const refundsApp: AppDefinition = {
   description: "Request and approve customer refunds.",
   route: "/refunds",
   roles: [REFUNDS_AGENT, REFUNDS_APPROVER, ADMIN_ROLE], // anyone with one of these can open the app
+  permissions: { [REFUNDS_AGENT]: "Request", [REFUNDS_APPROVER]: "Approve / reject", [ADMIN_ROLE]: "View" }, // shown on Access control
 };
 ```
 
@@ -49,7 +50,7 @@ Then add it to `src/apps/index.ts`:
 export const apps: AppDefinition[] = [kycApp, refundsApp];
 ```
 
-The header nav and portal home page update automatically, filtered by role.
+The header nav and portal home page update automatically, filtered by role. Admin → Access control picks up the new app's roles too, so admins can grant access without code changes.
 
 ## 3. Add routes
 

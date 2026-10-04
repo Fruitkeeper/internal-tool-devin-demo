@@ -8,4 +8,9 @@ export const kycApp: AppDefinition = {
   description: "Review customer identity cases with maker-checker approval.",
   route: "/kyc",
   roles: [KYC_ANALYST, KYC_REVIEWER, ADMIN_ROLE],
+  permissions: {
+    [KYC_ANALYST]: "Review & recommend",
+    [KYC_REVIEWER]: "Approve / reject",
+    [ADMIN_ROLE]: "View + reveal IDs",
+  },
 };

@@ -29,10 +29,11 @@ const rand = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
 const pick = <T,>(xs: T[]) => xs[Math.floor(rand() * xs.length)];
 const digits = (n: number) => Array.from({ length: n }, () => Math.floor(rand() * 10)).join("");
 
-// Idempotent: users are upserted and each app's data is seeded only if its table is empty,
-// so adding a new app's seed works on an existing database.
+// Idempotent: missing users are created and each app's data is seeded only if its table is empty,
+// so adding a new app's seed works on an existing database. Existing users keep their roles, so
+// changes made on Admin → Access control survive `npm run dev` restarts (`npm run db:reset` restores them).
 async function main() {
-  for (const u of USERS) await db.user.upsert({ where: { id: u.id }, create: u, update: { roles: u.roles } });
+  for (const u of USERS) await db.user.upsert({ where: { id: u.id }, create: u, update: {} });
   if ((await db.kycCase.count()) === 0) await seedKyc();
   if ((await db.refund.count()) === 0) await seedRefunds();
   if ((await db.featureFlag.count()) === 0) await seedFlags();
