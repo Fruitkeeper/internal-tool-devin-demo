@@ -23,7 +23,8 @@ export default async function QueuePage({ searchParams }: { searchParams: Search
   return (
     <div>
       <h1 className="mb-4 text-2xl font-semibold">KYC queue</h1>
-      <form className="mb-4 flex flex-wrap items-end gap-3 text-sm">
+      {/* key remounts the uncontrolled inputs when the URL changes (e.g. after Reset) */}
+      <form key={JSON.stringify(sp)} className="mb-4 flex flex-wrap items-end gap-3 text-sm">
         <label className="flex flex-col gap-1">
           Status
           <select name="status" defaultValue={sp.status ?? ""} className={inputClass}>
