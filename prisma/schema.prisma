@@ -88,3 +88,18 @@ model Refund {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
+
+// ---------- Feature Flags app ----------
+
+/** One row per flag per environment, e.g. id "new-checkout.production". */
+model FeatureFlag {
+  id          String   @id
+  key         String
+  description String
+  environment String // development | staging | production
+  enabled     Boolean  @default(false)
+  rolloutPct  Int      @default(0) // 0–100
+  updatedAt   DateTime @updatedAt
+
+  @@unique([key, environment])
+}
