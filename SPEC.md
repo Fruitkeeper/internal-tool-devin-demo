@@ -86,6 +86,7 @@ The platform does not change the app's entity. The calling app applies its own s
 | App | Route | Roles with access | Spec |
 | --- | --- | --- | --- |
 | KYC Review | `/kyc` | `kyc_analyst`, `kyc_reviewer`, `admin` | [src/apps/kyc/SPEC.md](./src/apps/kyc/SPEC.md) |
+| Refunds Dashboard | `/refunds` | `refunds_analyst`, `refunds_reviewer`, `admin` | [src/apps/refunds/SPEC.md](./src/apps/refunds/SPEC.md) |
 
 A new app adds one row here, alongside its registry entry in `src/apps/index.ts`.
 
@@ -99,6 +100,9 @@ Users are seeded by `prisma/seed.ts` and switched in the header. App-specific se
 | carol, dave | `kyc_reviewer` |
 | erin | `admin` |
 | sam | `kyc_analyst`, `kyc_reviewer` |
+| rita | `refunds_analyst` |
+| rex | `refunds_reviewer` |
+| quinn | `refunds_analyst`, `refunds_reviewer` |
 | zoe | none (sees no apps) |
 
 ---
@@ -109,7 +113,7 @@ Users are seeded by `prisma/seed.ts` and switched in the header. App-specific se
 | --- | --- |
 | The audit log rejects UPDATE and DELETE | `tests/platform.test.ts` |
 | `src/platform` never imports from `src/apps` | `tests/platform.test.ts` |
-| Self-approval is blocked; approvals can't be decided twice; a note is required | Exercised through the KYC app in `tests/kyc-workflow.test.ts` › maker-checker |
+| Self-approval is blocked; approvals can't be decided twice; a note is required | Exercised through each app: `tests/kyc-workflow.test.ts` and `tests/refunds.test.ts` › maker-checker |
 
 App invariants are listed in each app's spec. Run everything with `npm test`.
 

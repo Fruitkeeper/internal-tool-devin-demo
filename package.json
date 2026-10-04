@@ -7,7 +7,7 @@
     "dev": "npm run db:setup && next dev",
     "build": "next build",
     "start": "npm run db:setup && next start",
-    "db:setup": "prisma migrate deploy && tsx prisma/seed.ts --if-empty",
+    "db:setup": "prisma migrate deploy && tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset --force",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
