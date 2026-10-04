@@ -111,7 +111,7 @@ KycCase entries also store the masked `before` snapshot.
 ## 8. Seed data (`prisma/seed.ts`)
 
 - Seeding is deterministic, so every install gets the same data.
-- `npm run dev` seeds only when the database is empty. `npm run db:reset` wipes and reseeds.
+- `npm run dev` seeds KYC cases only if none exist. `npm run db:reset` wipes and reseeds.
 - Users:
 
 | id | Roles |
