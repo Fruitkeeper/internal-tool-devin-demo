@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Platform ----------
+
+model User {
+  id    String @id
+  name  String
+  email String @unique
+  roles String // comma-separated role ids, e.g. "kyc_analyst,kyc_reviewer"
+
+  submittedApprovals Approval[] @relation("submittedBy")
+  decidedApprovals   Approval[] @relation("decidedBy")
+}
+
+// Append-only: UPDATE/DELETE are blocked by SQLite triggers (see migrations).
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  userId     String
+  userName   String
+  role       String
+  appId      String
+  action     String
+  entityType String
+  entityId   String
+  before     String? // JSON
+  after      String? // JSON
+
+  @@index([entityType, entityId])
+  @@index([appId, action])
+}
+
+// Generic maker-checker request. Apps reference their own entities by type + id.
+model Approval {
+  id             String    @id @default(cuid())
+  appId          String
+  entityType     String
+  entityId       String
+  proposedAction String
+  note           String
+  status         String    @default("pending") // pending | approved | rejected
+  submittedById  String
+  decidedById    String?
+  decisionNote   String?
+  createdAt      DateTime  @default(now())
+  decidedAt      DateTime?
+
+  submittedBy User  @relation("submittedBy", fields: [submittedById], references: [id])
+  decidedBy   User? @relation("decidedBy", fields: [decidedById], references: [id])
+
+  @@index([entityType, entityId])
+}
+
+// ---------- KYC app ----------
+
+model KycCase {
+  id           String   @id
+  customerName String
+  dateOfBirth  String // YYYY-MM-DD
+  country      String
+  idDocType    String
+  idDocNumber  String
+  riskScore    Int
+  sanctionsHit Boolean
+  pepHit       Boolean
+  status       String   @default("pending")
+  escalated    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
